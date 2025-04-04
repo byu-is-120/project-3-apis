@@ -11,3 +11,5 @@ aws lambda update-function-code \
 	--function-name $API_FOLDER \
 	--zip-file fileb://./dist/$API_FOLDER.zip \
 	--no-cli-pager # don't require the user to press enter to continue
+
+echo "Uploaded"
