@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "test": "node local.js",
+    "zip-weather": "export API_FOLDER=weather-api && ./zip.sh",
+    "zip-sports": "export API_FOLDER=sports-api && ./zip.sh",
+    "zip-flights": "export API_FOLDER=flights-api && ./zip.sh",
+    "zip-music": "export API_FOLDER=music-api && ./zip.sh",
+    "zip-all": "npm run zip-weather && npm run zip-sports && npm run zip-flights && npm run zip-music"
+  },
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.782.0"
+  }
+}
