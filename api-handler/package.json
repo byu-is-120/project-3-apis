@@ -5,7 +5,17 @@
     "zip-sports": "export API_FOLDER=sports-api && ./zip.sh",
     "zip-flights": "export API_FOLDER=flights-api && ./zip.sh",
     "zip-music": "export API_FOLDER=music-api && ./zip.sh",
-    "zip-all": "npm run zip-weather && npm run zip-sports && npm run zip-flights && npm run zip-music"
+    "zip-all": "npm run zip-weather && npm run zip-sports && npm run zip-flights && npm run zip-music",
+    "upload-weather": "export API_FOLDER=weather-api && ./upload.sh",
+    "upload-sports": "export API_FOLDER=sports-api && ./upload.sh",
+    "upload-flights": "export API_FOLDER=flights-api && ./upload.sh",
+    "upload-music": "export API_FOLDER=music-api && ./upload.sh",
+    "upload-all": "npm run upload-weather && npm run upload-sports && npm run upload-flights && npm run upload-music",
+    "deploy-weather": "npm run zip-weather && npm run upload-weather",
+    "deploy-sports": "npm run zip-sports && npm run upload-sports",
+    "deploy-flights": "npm run zip-flights && npm run upload-flights",
+    "deploy-music": "npm run zip-music && npm run upload-music",
+    "deploy-all": "npm run zip-all && npm run upload-all"
   },
   "type": "module",
   "dependencies": {

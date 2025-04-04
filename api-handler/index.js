@@ -1,8 +1,8 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 
-export async function handler() {
-  const s3 = new S3Client({ region: "us-west-2" });
+const s3 = new S3Client({ region: "us-west-2" });
 
+export async function handler() {
   const getObjectCommand = new GetObjectCommand({
     Bucket: "is120-w25-apis",
     Key: "data/weather-api/data.json",

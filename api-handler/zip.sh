@@ -1,4 +1,6 @@
-echo "zipping $API_FOLDER"
+#!/bin/bash
+
+echo "Zipping $API_FOLDER"
 
 mv ./index.js ./tmp-index.js
 
