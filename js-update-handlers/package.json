@@ -1,5 +1,11 @@
 {
   "type": "module",
+  "scripts": {
+    "test": "node local.js",
+    "zip": "./zip.sh",
+    "upload": "./upload.sh",
+    "deploy": "./deploy.sh"
+  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.782.0",
     "@aws-sdk/client-secrets-manager": "^3.782.0",

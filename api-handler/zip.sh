@@ -11,7 +11,7 @@ echo "Zipping $API_FOLDER"
 cp ./index.js ./tmp-index.js
 
 # Update the index.js file to point to the correct folder in S3
-sed -i "s/Key: \".*\",/Key: \"data\/${API_FOLDER}\/data.json\",/g" ./index.js
+sed -i "s/const FILE_KEY = \".*\";/const FILE_KEY = \"data\/${API_FOLDER}\/data.json\";/g" ./index.js
 
 # Create a zip file excluding the other zip files
 zip -rq ./dist/${API_FOLDER}.zip . -x "*.zip" -x "dist/*"

@@ -1,12 +1,8 @@
 import axios from "axios";
-import {
-  SecretsManagerClient,
-  GetSecretValueCommand,
-} from "@aws-sdk/client-secrets-manager";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import fs from "fs";
 import base64 from "base-64";
 import { URLSearchParams } from "url";
+import { retrieveApiKeys } from "../utils/aws-secrets.js";
 
 class SpotifyDataCollector {
   constructor(clientId, clientSecret) {
@@ -80,10 +76,10 @@ class SpotifyDataCollector {
       .catch((error) => {
         if (error?.response?.status === 429) {
           console.log(
-            `Rate limit exceeded, retrying in ${error.response.headers?.["retry-after"]}ms...`,
+            `Rate limit exceeded, retrying in ${error.response.headers?.["retry-after"]}s...`,
           );
           return this.delay(
-            error.response.headers?.["retry-after"] || 10_000,
+            (error.response.headers?.["retry-after"] || 10) * 1000,
           ).then(() => this.searchArtistsByGenre(genre, limit));
         } else {
           throw error;
@@ -118,10 +114,10 @@ class SpotifyDataCollector {
       .catch((error) => {
         if (error?.response?.status === 429) {
           console.log(
-            `Rate limit exceeded, retrying in ${error.response.headers?.["retry-after"]}ms...`,
+            `Rate limit exceeded, retrying in ${error.response.headers?.["retry-after"]}s...`,
           );
           return this.delay(
-            error.response.headers?.["retry-after"] || 10_000,
+            (error.response.headers?.["retry-after"] || 10) * 1000,
           ).then(() => this.getArtistAlbums(artistId, limit));
         } else {
           throw error;
@@ -157,11 +153,11 @@ class SpotifyDataCollector {
       .catch(async (error) => {
         if (error?.response?.status === 429) {
           console.log(
-            `Rate limit exceeded, retrying in ${error.response.headers?.["retry-after"]}ms...`,
+            `Rate limit exceeded, retrying in ${error.response.headers?.["retry-after"]}s...`,
           );
 
           return this.delay(
-            error.response.headers?.["retry-after"] || 10_000,
+            (error.response.headers?.["retry-after"] || 10) * 1000,
           ).then(() => this.getAlbumDetails(albumId));
         } else {
           throw error;
@@ -210,52 +206,19 @@ class SpotifyDataCollector {
     console.log(`Data saved to ${filename}`);
   }
 
-  async saveToS3(data, filename = "music-api/data.json") {
-    const s3 = new S3Client();
-    const bucketName = "is120-w25-apis";
-    const params = {
-      Bucket: bucketName,
-      Key: filename,
-      Body: JSON.stringify(data),
-      ContentType: "application/json",
-    };
-    try {
-      await s3.send(new PutObjectCommand(params));
-      console.log(`Data saved to S3 as ${filename}`);
-    } catch (error) {
-      console.error("Error saving to S3:", error);
-    }
-  }
-
   delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
-async function getSpotifyCredentials() {
-  const secretsManager = new SecretsManagerClient();
-  const secretName = "is120-project-3-api-keys";
-
-  try {
-    const command = new GetSecretValueCommand({ SecretId: secretName });
-    const data = await secretsManager.send(command);
-    const { SPOTIFY_CLIENT_ID: clientId, SPOTIFY_CLIENT_SECRET: clientSecret } =
-      JSON.parse(data.SecretString);
-    return { clientId, clientSecret };
-  } catch (error) {
-    console.error("Error retrieving Spotify credentials:", error);
-    throw error;
-  }
-}
-
-async function main() {
-  const { clientId, clientSecret } = await getSpotifyCredentials();
+export async function GetMusicData() {
+  const { SPOTIFY_CLIENT_ID: clientId, SPOTIFY_CLIENT_SECRET: clientSecret } =
+    await retrieveApiKeys();
   const collector = new SpotifyDataCollector(clientId, clientSecret);
   await collector.getToken();
   const data = await collector.collectAllData();
-  collector.saveToS3(data);
-
-  console.log("Data collection completed.");
+  return {
+    data,
+    updated: new Date().toISOString(),
+  };
 }
-
-main().catch(console.error);

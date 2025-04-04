@@ -1,11 +1,16 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 
+// WARN: Be careful changing the format of this FILE_KEY line. It'll mess up the deployment.
+// You can change the text inside the quotes, but nothing outside the quotes.
+// Check out the `sed` command in `./zip.sh` for details.
+const FILE_KEY = "data/weather-api/data.json";
+
 const s3 = new S3Client({ region: "us-west-2" });
 
 export async function handler() {
   const getObjectCommand = new GetObjectCommand({
     Bucket: "is120-w25-apis",
-    Key: "data/weather-api/data.json",
+    Key: FILE_KEY,
   });
 
   const response = {
