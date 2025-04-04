@@ -130,14 +130,8 @@ class ESPNDataFetcher {
 
 export async function GetSportsData() {
   const fetcher = new ESPNDataFetcher();
-  const startTime = Date.now();
 
   await fetcher.collectAllData();
-  console.log(
-    "Sports data collection completed in",
-    Date.now() - startTime,
-    "ms",
-  );
 
   return {
     data: fetcher.allData,

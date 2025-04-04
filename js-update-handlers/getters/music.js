@@ -75,7 +75,7 @@ class SpotifyDataCollector {
       })
       .catch((error) => {
         if (error?.response?.status === 429) {
-          console.log(
+          console.warn(
             `Rate limit exceeded, retrying in ${error.response.headers?.["retry-after"]}s...`,
           );
           return this.delay(
@@ -113,7 +113,7 @@ class SpotifyDataCollector {
       })
       .catch((error) => {
         if (error?.response?.status === 429) {
-          console.log(
+          console.warn(
             `Rate limit exceeded, retrying in ${error.response.headers?.["retry-after"]}s...`,
           );
           return this.delay(
@@ -152,7 +152,7 @@ class SpotifyDataCollector {
       })
       .catch(async (error) => {
         if (error?.response?.status === 429) {
-          console.log(
+          console.warn(
             `Rate limit exceeded, retrying in ${error.response.headers?.["retry-after"]}s...`,
           );
 

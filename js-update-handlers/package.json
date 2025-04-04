@@ -4,7 +4,7 @@
     "test": "node local.js",
     "zip": "./zip.sh",
     "upload": "./upload.sh",
-    "deploy": "./deploy.sh"
+    "deploy": "npm run zip && npm run upload"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.782.0",
