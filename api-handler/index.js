@@ -14,7 +14,6 @@ export async function handler() {
   });
 
   const response = {
-    statusCode: 200,
     headers: {
       "Content-Type": "application/json",
     },
@@ -23,6 +22,8 @@ export async function handler() {
   try {
     const s3Res = await s3.send(getObjectCommand);
     response.body = await streamToString(s3Res.Body);
+    response.statusCode = 200;
+    response.headers["Cache-Control"] = "public, max-age=3600, s-maxage=3600";
   } catch (error) {
     console.error("Error fetching data from S3:", error);
     response.statusCode = 500;
