@@ -1,4 +1,5 @@
 import requests
+import asyncio
 import boto3
 import json
 import time
@@ -15,7 +16,7 @@ class SpotifyDataCollector:
         self.base_url = "https://api.spotify.com/v1"
         self.get_token()
 
-    def get_token(self):
+    async def get_token(self):
         """Get Spotify API access token"""
         auth_url = "https://accounts.spotify.com/api/token"
         auth_header = base64.b64encode(
@@ -67,7 +68,7 @@ class SpotifyDataCollector:
         ]
         return popular_genres[:limit]
 
-    def search_artists_by_genre(self, genre, limit=50):
+    async def search_artists_by_genre(self, genre, limit=50):
         """Search for top artists in a specific genre"""
         endpoint = f"{self.base_url}/search"
         query_params = {"q": f"genre:{genre}", "type": "artist", "limit": limit}
@@ -81,16 +82,17 @@ class SpotifyDataCollector:
             if response.status_code == 401:
                 # Token expired, get a new one
                 self.get_token()
-                return self.search_artists_by_genre(genre, limit)
+                return await self.search_artists_by_genre(genre, limit)
             if response.status_code == 429:
                 # Rate limit exceeded, wait and retry
                 print("Rate limit exceeded, waiting for 60 seconds...")
                 time.sleep(response.headers.get("Retry-After", 5))
-                return self.search_artists_by_genre(genre, limit)
+                return await self.search_artists_by_genre(genre, limit)
             return []
 
-    def get_artist_albums(self, artist_id, limit=5):
+    async def get_artist_albums(self, artist_id, limit=5):
         """Get top albums for an artist"""
+        print(f"Fetching albums for artist: {artist_id}")
         endpoint = f"{self.base_url}/artists/{artist_id}/albums"
         params = {"include_groups": "album", "limit": limit, "market": "US"}
         url = f"{endpoint}?{urlencode(params)}"
@@ -101,7 +103,7 @@ class SpotifyDataCollector:
             # Sort by popularity (need to get details for each album)
             album_details = []
             for album in albums[:limit]:
-                details = self.get_album_details(album["id"])
+                details = await self.get_album_details(album["id"])
                 if details:
                     album_details.append(details)
 
@@ -114,15 +116,16 @@ class SpotifyDataCollector:
             )
             if response.status_code == 401:
                 self.get_token()
-                return self.get_artist_albums(artist_id, limit)
+                return await self.get_artist_albums(artist_id, limit)
             if response.status_code == 429:
                 # Rate limit exceeded, wait and retry
                 print("Rate limit exceeded, waiting for 60 seconds...")
                 time.sleep(response.headers.get("Retry-After", 5))
-                return self.get_artist_albums(artist_id, limit)
+                return await self.get_artist_albums(artist_id, limit)
             return []
 
-    def get_album_details(self, album_id):
+    async def get_album_details(self, album_id):
+        print(f"Fetching details for album: {album_id}")
         """Get detailed information about an album including tracks"""
         endpoint = f"{self.base_url}/albums/{album_id}"
 
@@ -158,15 +161,16 @@ class SpotifyDataCollector:
             print(f"Error getting album details for {album_id}: {response.status_code}")
             if response.status_code == 401:
                 self.get_token()
-                return self.get_album_details(album_id)
+                return await self.get_album_details(album_id)
             if response.status_code == 429:
                 # Rate limit exceeded, wait and retry
                 print("Rate limit exceeded, waiting for 60 seconds...")
                 time.sleep(response.headers.get("Retry-After", 5))
-                return self.get_album_details(album_id)
+                return await self.get_album_details(album_id)
             return None
 
-    def get_artist_details(self, artist):
+    async def get_artist_details(self, artist):
+        print(f"Fetching details for artist: {artist['name']}")
 
         # Create simplified artist structure
         artist_data = {
@@ -180,36 +184,28 @@ class SpotifyDataCollector:
         }
 
         # Get top albums
-        albums = self.get_artist_albums(artist["id"])
+        albums = await self.get_artist_albums(artist["id"])
         artist_data["albums"] = albums
         return artist_data
 
-    def get_genre_artists(self, genre):
+    async def get_genre_artists(self, genre):
         """Get artists for a specific genre"""
-        artists = self.search_artists_by_genre(genre)
+        print(f"Fetching artists for genre: {genre}")
+        artists = await self.search_artists_by_genre(genre)
         genre_data = {"genre_name": genre, "artists": []}
 
-        for artist in artists[:50]:
-            print(f"  Processing artist: {artist['name']}")
-
-            # Get artist details
-            artist_data = self.get_artist_details(artist)
-
-            # Add to genre
-            genre_data["artists"].append(artist_data)
+        tasks = [self.get_artist_details(artist) for artist in artists[:50]]
+        genre_data["artists"] = await asyncio.gather(*tasks)
 
         # Sort artists by popularity
         genre_data["artists"].sort(key=lambda x: x["popularity"], reverse=True)
         return genre_data
 
-    def collect_all_data(self):
+    async def collect_all_data(self):
         """Collect data for top artists across popular genres"""
         genres = self.get_top_genres()
-        result = {"spotify_top_genre_artists": []}
-
-        for genre in genres:
-            genre_data = self.get_genre_artists(genre)
-            result["spotify_top_genre_artists"].append(genre_data)
+        tasks = [self.get_genre_artists(genre) for genre in genres]
+        result = {"spotify_top_genre_artists": await asyncio.gather(*tasks)}
 
         return result
 
@@ -219,37 +215,14 @@ class SpotifyDataCollector:
             json.dump(data, f, indent=4)
         print(f"Data saved to {filename}")
 
-    def save_to_s3(self, data, filename="spotify_top_genre_artists.json"):
+    async def save_to_s3(self, data, filename="spotify_top_genre_artists.json"):
         """Save collected data to a JSON file with nice formatting"""
         with open(filename, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
         print(f"Data saved to {filename}")
 
 
-def main():
-    # You need to set these environment variables or replace with your actual credentials
-    client_id, client_secret = get_spotify_credentials()
-
-    collector = SpotifyDataCollector(client_id, client_secret)
-    data = collector.collect_all_data()
-    collector.save_to_json(data)
-
-    # Print sample of the data structure
-    print("\nSample of the collected data structure:")
-    if data["spotify_top_genre_artists"]:
-        genre = data["spotify_top_genre_artists"][0]
-        print(f"Genre: {genre['genre_name']}")
-        if genre["artists"]:
-            artist = genre["artists"][0]
-            print(f"Top artist: {artist['name']}")
-            if artist["albums"]:
-                album = artist["albums"][0]
-                print(f"Top album: {album['name']}")
-                if album["songs"]:
-                    print(f"First song: {album['songs'][0]['name']}")
-
-
-def get_spotify_credentials():
+async def get_spotify_credentials():
     """Get spotify credentials from aws secrets manager"""
 
     # Initialize a session using Boto3
@@ -277,5 +250,32 @@ def get_spotify_credentials():
     return client_id, client_secret
 
 
+async def main():
+    start_time = time.time()
+    # You need to set these environment variables or replace with your actual credentials
+    client_id, client_secret = await get_spotify_credentials()
+
+    collector = SpotifyDataCollector(client_id, client_secret)
+    data = await collector.collect_all_data()
+    collector.save_to_json(data)
+    end_time = time.time()
+
+    print(f"Data collection completed in {end_time - start_time:.2f} seconds")
+
+    # Print sample of the data structure
+    print("\nSample of the collected data structure:")
+    if data["spotify_top_genre_artists"]:
+        genre = data["spotify_top_genre_artists"][0]
+        print(f"Genre: {genre['genre_name']}")
+        if genre["artists"]:
+            artist = genre["artists"][0]
+            print(f"Top artist: {artist['name']}")
+            if artist["albums"]:
+                album = artist["albums"][0]
+                print(f"Top album: {album['name']}")
+                if album["songs"]:
+                    print(f"First song: {album['songs'][0]['name']}")
+
+
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
