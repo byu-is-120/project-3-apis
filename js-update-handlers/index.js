@@ -3,59 +3,27 @@ import {
   GetFlightData,
   GetWeatherData,
   GetSportsData,
-  // GetMusicData,
+  GetMusicData,
 } from "./getters/index.js";
 
 export async function handler() {
-  const [
-    flightsData,
-    weatherData,
-    sportsData,
-    // musicData,
-  ] = await Promise.all([
-    GetFlightData(),
-    GetWeatherData(),
-    GetSportsData(),
-    // GetMusicData(),
-  ]);
-
-  const flights = {
-    data: flightsData,
-    api: "flights-api",
-  };
-
-  const weather = {
-    data: weatherData,
-    api: "weather-api",
-  };
-
-  const sports = {
-    data: sportsData,
-    api: "sports-api",
-  };
-
-  // const music = {
-  //   data: musicData,
-  //   api: "music-api",
-  // };
-
   await Promise.all([
-    UploadToS3(flights),
-    UploadToS3(weather),
-    UploadToS3(sports),
-    // UploadToS3(music),
+    GetFlightData().then((data) => UploadToS3(data, "flights-api")),
+    GetWeatherData().then((data) => UploadToS3(data, "weather-api")),
+    GetSportsData().then((data) => UploadToS3(data, "sports-api")),
+    GetMusicData().then((data) => UploadToS3(data, "music-api")),
   ]);
 }
 
-async function UploadToS3(data) {
+async function UploadToS3(data, folder) {
   const s3 = new S3Client({ region: "us-west-2" });
   const bucketName = "is120-w25-apis";
-  const key = `data/${data.api}/data.json`;
+  const key = `data/${folder}/data.json`;
 
   const command = new PutObjectCommand({
     Bucket: bucketName,
     Key: key,
-    Body: JSON.stringify(data.data),
+    Body: JSON.stringify(data),
     ContentType: "application/json",
   });
 
