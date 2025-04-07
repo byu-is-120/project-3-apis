@@ -1,6 +1,20 @@
 import fs from "fs";
 import axios from "axios";
 
+import https from "https";
+
+const agent = new https.Agent({
+  keepAlive: true,
+  timeout: 10000,
+  maxSockets: 10,
+  maxFreeSockets: 5,
+});
+
+const axiosClient = axios.create({
+  httpAgent: agent,
+  httpsAgent: agent,
+});
+
 class ESPNDataFetcher {
   constructor() {
     this.baseUrl = "https://site.api.espn.com/apis/site/v2/sports";
@@ -15,7 +29,7 @@ class ESPNDataFetcher {
 
   async fetchData(url) {
     try {
-      const response = await axios.get(url);
+      const response = await axiosClient.get(url);
       return response.data;
     } catch (error) {
       console.error(

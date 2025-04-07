@@ -3,6 +3,23 @@ import fs from "fs";
 import base64 from "base-64";
 import { URLSearchParams } from "url";
 import { retrieveApiKeys } from "../utils/aws-secrets.js";
+import https from "https";
+
+const GENRE_LIMIT = 10;
+const ARTIST_PER_GENRE_LIMIT = 20;
+const ALBUM_PER_ARTIST_LIMIT = 5;
+
+const agent = new https.Agent({
+  keepAlive: true,
+  timeout: 10000,
+  maxSockets: 10,
+  maxFreeSockets: 5,
+});
+
+const axiosClient = axios.create({
+  httpAgent: agent,
+  httpsAgent: agent,
+});
 
 class SpotifyDataCollector {
   constructor(clientId, clientSecret) {
@@ -22,7 +39,7 @@ class SpotifyDataCollector {
     const data = new URLSearchParams();
     data.append("grant_type", "client_credentials");
 
-    await axios.post(authUrl, data, { headers }).then((response) => {
+    await axiosClient.post(authUrl, data, { headers }).then((response) => {
       this.token = response.data.access_token;
       console.log("Fetched Spotify token");
     });
@@ -32,7 +49,7 @@ class SpotifyDataCollector {
     return { Authorization: `Bearer ${this.token}` };
   }
 
-  getTopGenres(limit = 15) {
+  getTopGenres(limit = GENRE_LIMIT) {
     const popularGenres = [
       "pop",
       "rock",
@@ -58,7 +75,7 @@ class SpotifyDataCollector {
     return popularGenres.slice(0, limit);
   }
 
-  async searchArtistsByGenre(genre, limit = 50) {
+  async searchArtistsByGenre(genre, limit = ARTIST_PER_GENRE_LIMIT) {
     const endpoint = `${this.baseUrl}/search`;
     const queryParams = new URLSearchParams({
       q: `genre:${genre}`,
@@ -74,13 +91,19 @@ class SpotifyDataCollector {
         return response.data.artists.items;
       })
       .catch((error) => {
-        if (error?.response?.status === 429) {
-          console.warn(
-            `Rate limit exceeded, retrying in ${error.response.headers?.["retry-after"]}s...`,
+        if (error.code === "ETIMEDOUT") {
+          console.warn(`Timeout fetching album details: ${albumId}`);
+          return this.delay(1000).then(() =>
+            this.searchArtistsByGenre(albumId),
           );
-          return this.delay(
-            (error.response.headers?.["retry-after"] || 10) * 1000,
-          ).then(() => this.searchArtistsByGenre(genre, limit));
+        }
+        if (error?.response?.status === 429) {
+          const retryAfter =
+            (error.response.headers?.["retry-after"] || 10) + 1;
+          console.warn(`Rate limit exceeded, retrying in ${retryAfter}s...`);
+          return this.delay(retryAfter * 1000).then(() =>
+            this.searchArtistsByGenre(genre, limit),
+          );
         } else {
           throw error;
         }
@@ -89,7 +112,7 @@ class SpotifyDataCollector {
     return items;
   }
 
-  async getArtistAlbums(artistId, limit = 5) {
+  async getArtistAlbums(artistId, limit = ALBUM_PER_ARTIST_LIMIT) {
     const endpoint = `${this.baseUrl}/artists/${artistId}/albums`;
     const params = new URLSearchParams({
       include_groups: "album",
@@ -112,13 +135,17 @@ class SpotifyDataCollector {
         return albumDetails.slice(0, limit);
       })
       .catch((error) => {
+        if (error.code === "ETIMEDOUT") {
+          console.warn(`Timeout fetching album details: ${albumId}`);
+          return this.delay(1000).then(() => this.getArtistAlbums(albumId));
+        }
         if (error?.response?.status === 429) {
-          console.warn(
-            `Rate limit exceeded, retrying in ${error.response.headers?.["retry-after"]}s...`,
+          const retryAfter =
+            (error.response.headers?.["retry-after"] || 10) + 1;
+          console.warn(`Rate limit exceeded, retrying in ${retryAfter}s...`);
+          return this.delay(retryAfter * 1000).then(() =>
+            this.getArtistAlbums(artistId, limit),
           );
-          return this.delay(
-            (error.response.headers?.["retry-after"] || 10) * 1000,
-          ).then(() => this.getArtistAlbums(artistId, limit));
         } else {
           throw error;
         }
@@ -151,14 +178,18 @@ class SpotifyDataCollector {
         };
       })
       .catch(async (error) => {
+        if (error.code === "ETIMEDOUT") {
+          console.warn(`Timeout fetching album details: ${albumId}`);
+          return this.delay(1000).then(() => this.getAlbumDetails(albumId));
+        }
         if (error?.response?.status === 429) {
-          console.warn(
-            `Rate limit exceeded, retrying in ${error.response.headers?.["retry-after"]}s...`,
-          );
+          const retryAfter =
+            (error.response.headers?.["retry-after"] || 10) + 1;
+          console.warn(`Rate limit exceeded, retrying in ${retryAfter}s...`);
 
-          return this.delay(
-            (error.response.headers?.["retry-after"] || 10) * 1000,
-          ).then(() => this.getAlbumDetails(albumId));
+          return this.delay(retryAfter * 1000).then(() =>
+            this.getAlbumDetails(albumId),
+          );
         } else {
           throw error;
         }
@@ -185,7 +216,7 @@ class SpotifyDataCollector {
     const artists = await this.searchArtistsByGenre(genre);
     const genreData = { genre_name: genre, artists: [] };
 
-    for (const artist of artists.slice(0, 50)) {
+    for (const artist of artists.slice(0, ARTIST_PER_GENRE_LIMIT)) {
       const artistData = await this.getArtistDetails(artist);
       genreData.artists.push(artistData);
     }
