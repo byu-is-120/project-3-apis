@@ -3,6 +3,11 @@ import axios from "axios";
 
 import https from "https";
 
+// TODO:
+//  record
+//  colors
+//  NBA rosters
+
 const agent = new https.Agent({
   keepAlive: true,
   timeout: 10000,

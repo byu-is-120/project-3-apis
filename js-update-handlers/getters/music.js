@@ -5,6 +5,9 @@ import { URLSearchParams } from "url";
 import { retrieveApiKeys } from "../utils/aws-secrets.js";
 import https from "https";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+
+// TODO: do top 100 artists, top 100 albums, top 100 songs
+
 const s3 = new S3Client({ region: "us-west-2" });
 
 const GENRE_LIMIT = 10;
