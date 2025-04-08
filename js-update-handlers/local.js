@@ -4,7 +4,7 @@ async function test() {
   const start = Date.now();
   await handler();
   const end = Date.now();
-  console.log("Execution time:", end - start, "ms");
+  console.log("Execution time:", (end - start) / 1000, "s");
 }
 
 test();
