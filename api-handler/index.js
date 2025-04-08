@@ -14,19 +14,22 @@ export async function handler() {
   });
 
   const response = {
+    statusCode: 200,
     headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET",
       "Content-Type": "application/json",
+      "Cache-Control": "public, max-age=3600, s-maxage=3600",
     },
   };
 
   try {
     const s3Res = await s3.send(getObjectCommand);
     response.body = await streamToString(s3Res.Body);
-    response.statusCode = 200;
-    response.headers["Cache-Control"] = "public, max-age=3600, s-maxage=3600";
   } catch (error) {
     console.error("Error fetching data from S3:", error);
     response.statusCode = 500;
+    response.headers["Cache-Control"] = "no-cache";
     response.body = JSON.stringify({
       message: "Error fetching data from S3",
       error: error.message,
